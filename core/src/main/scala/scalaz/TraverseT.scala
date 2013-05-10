@@ -13,7 +13,7 @@ trait TraverseT[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A], M[+_], +A] {
   def foreach(f: A => Unit)(implicit M: Each[M], N: Each[N]): Unit =
     M.each(run) { na => N.each(na)(f) }
 
-  def flatMapM[B](f: A => M[B])(implicit M: Monad[M], N: Traverse[N], T: TraverseTWrapper[N, T]): T[M, B] =
+  def flatMapF[B](f: A => M[B])(implicit M: Monad[M], N: Traverse[N], T: TraverseTWrapper[N, T]): T[M, B] =
     T.wrap(M.join(M.map(run) { na => N.traverseImpl(na)(f) }))
 
   def ap[B](f: => T[M, A => B])(implicit M: Apply[M], N: Apply[N], T: TraverseTWrapper[N, T]): T[M, B] =
@@ -123,12 +123,11 @@ private[scalaz] trait TraverseTMonadPlus[N[+_], T[M[+_], +A] <: TraverseT[N, T, 
     T.wrap(M.apply2(a.run, b.run) { (na, nb) => N.plus[A](na, nb) })
 }
 
-
 trait TraverseTInstancesFunctor[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]] { self =>
   implicit def T: TraverseTWrapper[N, T]
   implicit def N: Functor[N]
 
-  implicit def traverseMonadTFunctor[M[+_]](implicit M0: Functor[M]): Functor[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTFunctor[M[+_]](implicit M0: Functor[M]): Functor[({type λ[α] = T[M, α]})#λ] =
     new TraverseTFunctor[N, T, M] {
       def T = self.T
       def N = self.N
@@ -140,7 +139,7 @@ trait TraverseTInstancesApply[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
     extends TraverseTInstancesFunctor[N, T] { self =>
   implicit def N: Apply[N]
 
-  implicit def traverseMonadTApply[M[+_]](implicit M0: Apply[M]): Apply[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTApply[M[+_]](implicit M0: Apply[M]): Apply[({type λ[α] = T[M, α]})#λ] =
     new TraverseTApply[N, T, M] {
       def T = self.T
       def N = self.N
@@ -152,7 +151,7 @@ trait TraverseTInstancesApplicative[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]
     extends TraverseTInstancesApply[N, T] { self =>
   implicit def N: Applicative[N]
 
-  implicit def traverseMonadTApplicative[M[+_]](implicit M0: Applicative[M]): Applicative[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTApplicative[M[+_]](implicit M0: Applicative[M]): Applicative[({type λ[α] = T[M, α]})#λ] =
     new TraverseTApplicative[N, T, M] {
       def T = self.T
       def N = self.N
@@ -165,7 +164,7 @@ trait TraverseTInstancesMonad[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
   implicit def N: Monad[N]
   implicit def TraverseN: Traverse[N]
 
-  implicit def traverseMonadTMonad[M[+_]](implicit M0: Monad[M]): Monad[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTMonad[M[+_]](implicit M0: Monad[M]): Monad[({type λ[α] = T[M, α]})#λ] =
     new TraverseTMonad[N, T, M] {
       def T = self.T
       def N = self.N
@@ -178,7 +177,7 @@ trait TraverseTInstancesFoldable[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]] {
   implicit def T: TraverseTWrapper[N, T]
   implicit def TraverseN: Foldable[N]
 
-  implicit def traverseMonadTFoldable[M[+_]](implicit M0: Foldable[M]): Foldable[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTFoldable[M[+_]](implicit M0: Foldable[M]): Foldable[({type λ[α] = T[M, α]})#λ] =
     new TraverseTFoldable[N, T, M] {
       def T = self.T
       def N = self.TraverseN
@@ -190,7 +189,7 @@ trait TraverseTInstancesTraverse[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
     extends TraverseTInstancesFoldable[N, T] with TraverseTInstancesFunctor[N, T] { self =>
   implicit def TraverseN: Traverse[N]
 
-  implicit def traverseMonadTTraverse[M[+_]](implicit M0: Traverse[M]): Traverse[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTTraverse[M[+_]](implicit M0: Traverse[M]): Traverse[({type λ[α] = T[M, α]})#λ] =
     new TraverseTTraverse[N, T, M] {
       def T = self.T
       def N = self.TraverseN
@@ -199,11 +198,11 @@ trait TraverseTInstancesTraverse[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
 }
 
 trait TraverseTInstancesMonadPlus[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
-    extends TraverseTInstancesTraverse[N, T] { self =>
+    extends TraverseTInstancesMonad[N, T] with TraverseTInstancesTraverse[N, T] { self =>
   implicit def N: MonadPlus[N]
   implicit def TraverseN: Traverse[N]
 
-  implicit def traverseMonadTMonad[M[+_]](implicit M0: Monad[M]): MonadPlus[({type λ[α] = T[M, α]})#λ] =
+  implicit def traverseTMonadPlus[M[+_]](implicit M0: Monad[M]): MonadPlus[({type λ[α] = T[M, α]})#λ] =
     new TraverseTMonadPlus[N, T, M] {
       def T = self.T
       def N = self.N
@@ -227,7 +226,7 @@ trait TraverseTInstancesMonadTrans[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]]
 trait TraverseTFunctions[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]] {
   implicit def T: TraverseTWrapper[N, T]
 
-  def optionT[M[+_]] = new (({type λ[α] = M[N[α]]})#λ ~> ({type λ[α] = T[M, α]})#λ) {
+  def traverseT[M[+_]] = new (({type λ[α] = M[N[α]]})#λ ~> ({type λ[α] = T[M, α]})#λ) {
     def apply[A](a: M[N[A]]): T[M, A] = T.wrap(a)
   }
 }
