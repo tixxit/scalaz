@@ -20,10 +20,6 @@ final case class OptionT[F[+_], +A](run: F[Option[A]]) extends TraverseT[Option,
 
   def getOrElse[AA >: A](default: => AA)(implicit F: Functor[F]): F[AA] = mapO(_.getOrElse(default))
 
-  def exists(f: A => Boolean)(implicit F: Functor[F]): F[Boolean] = mapO(_.exists(f))
-
-  def forall(f: A => Boolean)(implicit F: Functor[F]): F[Boolean] = mapO(_.forall(f))
-
   def orElse[AA >: A](a: => OptionT[F, AA])(implicit F: Monad[F]): OptionT[F, AA] =
     OptionT(F.bind(run) {
       case None => a.run

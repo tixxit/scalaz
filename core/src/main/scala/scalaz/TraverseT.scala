@@ -27,6 +27,12 @@ trait TraverseT[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A], M[+_], +A] {
   def traverse[G[_], B](f: A => G[B])(implicit M: Traverse[M], N: Traverse[N],
       G: Applicative[G], T: TraverseTWrapper[N, T]): G[T[M, B]] =
     G.map(M.traverse(run) { na => N.traverse(na)(f) })(T.wrap(_))
+
+  def exists(f: A => Boolean)(implicit M: Functor[M], N: Foldable[N]): M[Boolean] =
+    M.map(run)(N.any(_)(f))
+
+  def forall(f: A => Boolean)(implicit M: Functor[M], N: Foldable[N]): M[Boolean] =
+    M.map(run)(N.all(_)(f))
 }
 
 trait TraverseTWrapper[N[+_], T[M[+_], +A] <: TraverseT[N, T, M, A]] {
