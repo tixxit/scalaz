@@ -5,7 +5,7 @@ import std.option.{optionInstance, none, some}
 /**
  * OptionT monad transformer.
  */
-final case class OptionT[F[+_], +A](run: F[Option[A]]) extends TraverseT[Option, OptionT, F, A] {
+final case class OptionT[F[+_], +A](run: F[Option[A]]) extends TraverseTImpl[Option, OptionT, F, A] {
   self =>
 
   def isDefined(implicit F: Functor[F]): F[Boolean] = mapO(_.isDefined)
@@ -33,11 +33,11 @@ final case class OptionT[F[+_], +A](run: F[Option[A]]) extends TraverseT[Option,
 // Prioritized Implicits for type class instances
 //
 
-trait OptionTInstances extends TraverseTInstances[Option, OptionT] {
+trait OptionTInstances extends TraverseTInstances[OptionT, Option] {
   implicit def optionTEqual[F[+_], A](implicit F0: Equal[F[Option[A]]]): Equal[OptionT[F, A]] = F0.contramap((_: OptionT[F, A]).run)
 }
 
-trait OptionTFunctions extends TraverseTFunctions[Option, OptionT] {
+trait OptionTFunctions extends TraverseTFunctions[OptionT, Option] {
   def optionT[M[+_]] = traverseT[M]
 
   def monadTell[F[_, +_], W, A](implicit MT0: MonadTell[F, W]) = new OptionTMonadTell[F, W] {
@@ -50,18 +50,17 @@ trait OptionTFunctions extends TraverseTFunctions[Option, OptionT] {
 }
 
 object OptionT extends OptionTFunctions with OptionTInstances {
-  implicit def T: TraverseTWrapper[Option, OptionT] = new TraverseTWrapper[Option, OptionT] {
+  implicit object T extends TraverseTWrapper[OptionT, Option] {
     def wrap[M[+_], A](run: M[Option[A]]): OptionT[M, A] = OptionT(run)
+    def unwrap[M[+_], A](t: OptionT[M, A]): M[Option[A]] = t.run
   }
-  def N: MonadPlus[Option] = MonadPlus[Option]
-  def TraverseN: Traverse[Option] = Traverse[Option]
 }
 
 //
 // Implementation traits for type class instances
 //
 
-private[scalaz] trait OptionTMonadTell[F[_, +_], W] extends MonadTell[({ type λ[α, β] = OptionT[({ type f[+x] = F[α, x] })#f, β] })#λ, W] with TraverseTMonad[Option, OptionT, ({ type λ[+α] = F[W, α] })#λ] with TraverseTHoist[Option, OptionT] {
+private[scalaz] trait OptionTMonadTell[F[_, +_], W] extends MonadTell[({ type λ[α, β] = OptionT[({ type f[+x] = F[α, x] })#f, β] })#λ, W] with TraverseTMonad[OptionT, Option, ({ type λ[+α] = F[W, α] })#λ] with TraverseTHoist[OptionT, Option] {
   def MT: MonadTell[F, W]
 
   implicit def M = MT

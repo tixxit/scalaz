@@ -5,8 +5,7 @@ import scalaz.std.list._
 /**
  * ListT monad transformer.
  */
-
-final case class ListT[M[+_], +A](run: M[List[A]]) extends TraverseT[List, ListT, M, A] {
+final case class ListT[M[+_], +A](run: M[List[A]]) extends TraverseTImpl[List, ListT, M, A] {
   def uncons(implicit M: Applicative[M]): M[Option[(A, ListT[M, A])]] = {
     M.map(run){list =>
       list match {
@@ -56,7 +55,7 @@ final case class ListT[M[+_], +A](run: M[List[A]]) extends TraverseT[List, ListT
 // Prioritized Implicits for type class instances
 //
 
-trait ListTInstances2 extends TraverseTInstances[List, ListT] {
+trait ListTInstances2 extends TraverseTInstances[ListT, List] {
   implicit def listTSemigroup[F[+_], A](implicit F0: Bind[F]): Semigroup[ListT[F, A]] = new ListTSemigroup[F, A]{
     implicit def F: Bind[F] = F0
   }
@@ -73,16 +72,17 @@ trait ListTInstances extends ListTInstances1 {
   implicit def listTShow[F[+_], A](implicit E: Show[F[List[A]]], F: Monad[F]): Show[ListT[F, A]] = Contravariant[Show].contramap(E)((_: ListT[F, A]).toList)
 }
 
-object ListT extends ListTInstances {
-  implicit def T: TraverseTWrapper[List, ListT] = new TraverseTWrapper[List, ListT] {
-    def wrap[M[+_], A](run: M[List[A]]): ListT[M, A] = ListT(run)
-  }
-  def N: MonadPlus[List] = MonadPlus[List]
-  def TraverseN: Traverse[List] = Traverse[List]
-
+trait ListTFunctions extends TraverseTFunctions[ListT, List] {
   def empty[M[+_], A](implicit M: Applicative[M]): ListT[M, A] = new ListT[M, A](M.point(Nil))
 
   def fromList[M[+_], A](mas: M[List[A]]): ListT[M, A] = new ListT(mas)
+}
+
+object ListT extends ListTInstances with ListTFunctions {
+  implicit object T extends TraverseTWrapper[ListT, List] {
+    def wrap[M[+_], A](run: M[List[A]]): ListT[M, A] = ListT(run)
+    def unwrap[M[+_], A](t: ListT[M, A]): M[List[A]] = t.run
+  }
 }
 
 //
